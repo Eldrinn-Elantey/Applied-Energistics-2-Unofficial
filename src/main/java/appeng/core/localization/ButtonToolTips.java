@@ -33,6 +33,7 @@ public enum ButtonToolTips {
     TrashController,
 
     InterfaceBlockingMode,
+    InterfaceSmartBlockingMode,
     InterfaceCraftingMode,
     Trash,
     MatterBalls,
@@ -84,6 +85,8 @@ public enum ButtonToolTips {
 
     Blocking,
     NonBlocking,
+    SmartBlocking,
+    NonSmartBlocking,
 
     LevelType,
     LevelType_Energy,
@@ -112,6 +115,7 @@ public enum ButtonToolTips {
 
     Craft,
     Mod,
+    UsedPercent,
     DoesntDespawn,
     EmitterMode,
     CraftViaRedstone,
@@ -144,6 +148,10 @@ public enum ButtonToolTips {
     OreFilterHint,
     DoublePattern,
     DoublePatternHint,
+    DoublePatterns,
+    DoublePatternsHint,
+    OptimizePatterns,
+    OptimizePatternsNoReq,
 
     SaveSearchString,
     SaveSearchStringYes,
@@ -165,6 +173,10 @@ public enum ButtonToolTips {
     SearchFieldOutputs,
     SearchFieldNames,
 
+    MultiplyPattern,
+    DividePattern,
+    MultiplyOrDividePatternHint,
+
     InsertionModeDefault,
     InsertionModeDefaultDesc,
     InsertionModePreferEmpty,
@@ -181,10 +193,35 @@ public enum ButtonToolTips {
     AdvancedBlockingModeDefaultDesc,
     AdvancedBlockingModeAll,
     AdvancedBlockingModeAllDesc,
+    LockCraftingMode,
+    LockCraftingModeNone,
+    LockCraftingUntilRedstonePulse,
+    LockCraftingWhileRedstoneHigh,
+    LockCraftingWhileRedstoneLow,
+    LockCraftingUntilResultReturned,
     CraftingModeStandard,
     CraftingModeStandardDesc,
     CraftingModeIgnoreMissing,
-    CraftingModeIgnoreMissingDesc;
+    CraftingModeIgnoreMissingDesc,
+    ExtraOptions,
+
+    SwitchBytesInfo,
+    SwitchBytesInfo_Item,
+    SwitchBytesInfo_Fluid,
+    SwitchBytesInfo_Essentia,
+
+    PriorityCardMode,
+    PriorityCardMode_Edit,
+    PriorityCardMode_View,
+    PriorityCardMode_Set,
+    PriorityCardMode_Inc,
+    PriorityCardMode_Dec,
+    ToFollow,
+    ToUnfollow,
+
+    StringOrder,
+    StringOrderNatural,
+    StringOrderAlphanum;
 
     private final String root;
 

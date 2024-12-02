@@ -22,7 +22,9 @@ import appeng.core.AppEng;
 import appeng.core.localization.GuiColors;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
+import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketValueConfig;
+import appeng.helpers.InventoryAction;
 
 public class GuiPatternTermEx extends GuiMEMonitorable {
 
@@ -215,7 +217,12 @@ public class GuiPatternTermEx extends GuiMEMonitorable {
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) {
         final int currentScroll = this.processingScrollBar.getCurrentScroll();
         this.processingScrollBar.click(this, xCoord - this.guiLeft, yCoord - this.guiTop);
-        super.mouseClicked(xCoord, yCoord, btn);
+        if (btn == 2 && doubleBtn.mousePressed(this.mc, xCoord, yCoord)) { //
+            InventoryAction action = InventoryAction.SET_PATTERN_MULTI;
+
+            final PacketInventoryAction p = new PacketInventoryAction(action, 0, 0);
+            NetworkHandler.instance.sendToServer(p);
+        } else super.mouseClicked(xCoord, yCoord, btn);
 
         if (currentScroll != this.processingScrollBar.getCurrentScroll()) {
             changeActivePage();
@@ -225,7 +232,7 @@ public class GuiPatternTermEx extends GuiMEMonitorable {
     @Override
     protected void mouseClickMove(final int x, final int y, final int c, final long d) {
         final int currentScroll = this.processingScrollBar.getCurrentScroll();
-        this.processingScrollBar.click(this, x - this.guiLeft, y - this.guiTop);
+        this.processingScrollBar.clickMove(y - this.guiTop);
         super.mouseClickMove(x, y, c, d);
 
         if (currentScroll != this.processingScrollBar.getCurrentScroll()) {

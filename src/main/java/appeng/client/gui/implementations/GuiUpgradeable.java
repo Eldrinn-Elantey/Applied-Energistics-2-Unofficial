@@ -20,9 +20,9 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.input.Mouse;
 
-import akka.japi.Pair;
 import appeng.api.config.ActionItems;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.RedstoneMode;
@@ -70,12 +70,24 @@ public class GuiUpgradeable extends AEBaseGui implements INEIGuiHandler {
         this.cvb = te;
 
         this.bc = (IUpgradeableHost) te.getTarget();
-        this.xSize = this.hasToolbox() ? 246 : 211;
+        if (this.hasToolbox()) {
+            this.xSize = switch (this.getToolboxSize()) {
+                case 3 -> 246;
+                case 5 -> 290;
+                default -> 246;
+            };
+        } else {
+            this.xSize = 211;
+        }
         this.ySize = 184;
     }
 
     protected boolean hasToolbox() {
         return ((ContainerUpgradeable) this.inventorySlots).hasToolbox();
+    }
+
+    protected int getToolboxSize() {
+        return ((ContainerUpgradeable) this.inventorySlots).getToolboxSize();
     }
 
     @Override
@@ -150,12 +162,24 @@ public class GuiUpgradeable extends AEBaseGui implements INEIGuiHandler {
         this.handleButtonVisibility();
 
         this.bindTexture(this.getBackground());
+
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, 211 - 34, this.ySize);
         if (this.drawUpgrades()) {
             this.drawTexturedModalRect(offsetX + 177, offsetY, 177, 0, 35, 14 + this.cvb.availableUpgrades() * 18);
         }
         if (this.hasToolbox()) {
-            this.drawTexturedModalRect(offsetX + 178, offsetY + this.ySize - 90, 178, this.ySize - 90, 68, 68);
+            switch (this.getToolboxSize()) {
+                case 3 -> this
+                        .drawTexturedModalRect(offsetX + 178, offsetY + this.ySize - 90, 178, this.ySize - 90, 68, 68);
+                case 5 -> {
+                    this.bindTexture(this.getAdvancedBackground());
+                    // It's too big, so move it up a little bit
+                    this.drawTexturedModalRect(offsetX + 178, offsetY + this.ySize - 90 - 7, 0, 0, 104, 104);
+                    this.bindTexture(this.getBackground());
+                }
+                default -> this
+                        .drawTexturedModalRect(offsetX + 178, offsetY + this.ySize - 90, 178, this.ySize - 90, 68, 68);
+            }
         }
     }
 
@@ -182,6 +206,10 @@ public class GuiUpgradeable extends AEBaseGui implements INEIGuiHandler {
 
     protected String getBackground() {
         return "guis/bus.png";
+    }
+
+    protected String getAdvancedBackground() {
+        return "guis/advanced_toolbox.png";
     }
 
     protected boolean drawUpgrades() {
@@ -242,15 +270,15 @@ public class GuiUpgradeable extends AEBaseGui implements INEIGuiHandler {
             for (int i = 0; i < this.inventorySlots.inventorySlots.size(); i++) {
                 Object slot = this.inventorySlots.inventorySlots.get(i);
                 if (slot instanceof SlotFake) {
-                    slots.add(new Pair<>((SlotFake) slot, i));
+                    slots.add(Pair.of((SlotFake) slot, i));
                 }
             }
         }
         for (Pair<SlotFake, Integer> fakeSlotPair : slots) {
-            SlotFake fakeSlot = fakeSlotPair.first();
+            SlotFake fakeSlot = fakeSlotPair.getKey();
             if (fakeSlot.isEnabled() && getSlotArea(fakeSlot).contains(mouseX, mouseY)) {
                 fakeSlot.putStack(draggedStack);
-                NetworkHandler.instance.sendToServer(new PacketNEIDragClick(draggedStack, fakeSlotPair.second()));
+                NetworkHandler.instance.sendToServer(new PacketNEIDragClick(draggedStack, fakeSlotPair.getValue()));
                 if (draggedStack != null) {
                     draggedStack.stackSize = 0;
                 }

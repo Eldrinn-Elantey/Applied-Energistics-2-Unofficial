@@ -30,9 +30,11 @@ import appeng.items.storage.ItemExtremeStorageCell;
 import appeng.items.storage.ItemSpatialStorageCell;
 import appeng.items.storage.ItemViewCell;
 import appeng.items.storage.ItemVoidStorageCell;
+import appeng.items.tools.ToolAdvancedNetworkTool;
 import appeng.items.tools.ToolBiometricCard;
 import appeng.items.tools.ToolMemoryCard;
 import appeng.items.tools.ToolNetworkTool;
+import appeng.items.tools.ToolPriorityCard;
 import appeng.items.tools.powered.ToolChargedStaff;
 import appeng.items.tools.powered.ToolColorApplicator;
 import appeng.items.tools.powered.ToolEntropyManipulator;
@@ -75,6 +77,8 @@ public final class ApiItems implements IItems {
     private final IItemDefinition massCannon;
     private final IItemDefinition memoryCard;
     private final IItemDefinition networkTool;
+    private final IItemDefinition advancedNetworkTool;
+    private final IItemDefinition priorityCard;
     private final IItemDefinition portableCell;
 
     private final IItemDefinition cellCreative;
@@ -92,6 +96,7 @@ public final class ApiItems implements IItems {
     private final IItemDefinition cellContainer;
     private final IItemDefinition cellQuantum;
     private final IItemDefinition cellSingularity;
+    private final IItemDefinition cellUniverse;
 
     private final IItemDefinition spatialCell2;
     private final IItemDefinition spatialCell16;
@@ -140,6 +145,8 @@ public final class ApiItems implements IItems {
         this.massCannon = constructor.registerItemDefinition(new ToolMassCannon());
         this.memoryCard = constructor.registerItemDefinition(new ToolMemoryCard());
         this.networkTool = constructor.registerItemDefinition(new ToolNetworkTool());
+        this.advancedNetworkTool = constructor.registerItemDefinition(new ToolAdvancedNetworkTool());
+        this.priorityCard = constructor.registerItemDefinition(new ToolPriorityCard());
         this.portableCell = constructor.registerItemDefinition(new ToolPortableCell());
 
         this.cellCreative = constructor.registerItemDefinition(new ItemCreativeStorageCell());
@@ -164,6 +171,8 @@ public final class ApiItems implements IItems {
                 .registerItemDefinition(new ItemExtremeStorageCell("Quantum", Integer.MAX_VALUE / 16, 1, 8, 1000D));
         this.cellSingularity = constructor.registerItemDefinition(
                 new ItemExtremeStorageCell("Singularity", Long.MAX_VALUE / 16, 1, 4096, 15000D));
+        this.cellUniverse = constructor.registerItemDefinition(
+                new ItemExtremeStorageCell("Universe", Long.MAX_VALUE / 16, 63, 16384, 600000D));
 
         this.spatialCell2 = constructor.registerItemDefinition(new ItemSpatialStorageCell(2));
         this.spatialCell16 = constructor.registerItemDefinition(new ItemSpatialStorageCell(16));
@@ -273,7 +282,7 @@ public final class ApiItems implements IItems {
 
     @Override
     public IItemDefinition chargedStaff() {
-        return this.memoryCard;
+        return this.chargedStaff;
     }
 
     @Override
@@ -289,6 +298,16 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition networkTool() {
         return this.networkTool;
+    }
+
+    @Override
+    public IItemDefinition advancedNetworkTool() {
+        return this.advancedNetworkTool;
+    }
+
+    @Override
+    public IItemDefinition priorityCard() {
+        return this.priorityCard;
     }
 
     @Override
@@ -364,6 +383,11 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition cellSingularity() {
         return this.cellSingularity;
+    }
+
+    @Override
+    public IItemDefinition cellUniverse() {
+        return this.cellUniverse;
     }
 
     @Override

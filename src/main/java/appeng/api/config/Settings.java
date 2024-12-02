@@ -31,6 +31,7 @@ public enum Settings {
 
     SORT_DIRECTION(EnumSet.allOf(SortDir.class)),
     SORT_BY(EnumSet.allOf(SortOrder.class)),
+    CRAFTING_SORT_BY(EnumSet.allOf(CraftingSortOrder.class)),
 
     SEARCH_TOOLTIPS(EnumSet.of(YesNo.YES, YesNo.NO)),
     VIEW_MODE(EnumSet.allOf(ViewItems.class)),
@@ -40,6 +41,7 @@ public enum Settings {
     IO_DIRECTION(EnumSet.of(RelativeDirection.LEFT, RelativeDirection.RIGHT)),
 
     BLOCK(EnumSet.of(YesNo.YES, YesNo.NO)),
+    SMART_BLOCK(EnumSet.of(YesNo.YES, YesNo.NO)),
     OPERATION_MODE(EnumSet.allOf(OperationMode.class)),
 
     FULLNESS_MODE(EnumSet.allOf(FullnessMode.class)),
@@ -53,6 +55,7 @@ public enum Settings {
 
     INTERFACE_TERMINAL(EnumSet.of(YesNo.YES, YesNo.NO)),
     CRAFT_VIA_REDSTONE(EnumSet.of(YesNo.YES, YesNo.NO)),
+    PATTERN_OPTIMIZATION(EnumSet.of(YesNo.YES, YesNo.NO)),
 
     STORAGE_FILTER(EnumSet.allOf(StorageFilter.class)),
     TYPE_FILTER(EnumSet.allOf(TypeFilter.class)),
@@ -68,7 +71,19 @@ public enum Settings {
 
     ADVANCED_BLOCKING_MODE(EnumSet.allOf(AdvancedBlockingMode.class)),
 
-    CRAFTING_MODE(EnumSet.allOf(CraftingMode.class));
+    CRAFTING_MODE(EnumSet.allOf(CraftingMode.class)),
+
+    CELL_TYPE(EnumSet.allOf(CellType.class)),
+
+    STICKY_MODE(EnumSet.of(YesNo.YES, YesNo.NO)),
+
+    LOCK_CRAFTING_MODE(EnumSet.allOf(LockCraftingMode.class)),
+
+    PRIORITY_CARD_MODE(EnumSet.allOf(PriorityCardMode.class)),
+
+    TERMINAL_FONT_SIZE(EnumSet.allOf(TerminalFontSize.class)),
+
+    INTERFACE_TERMINAL_SECTION_ORDER(EnumSet.allOf(StringOrder.class));
 
     private final EnumSet<? extends Enum<?>> values;
 

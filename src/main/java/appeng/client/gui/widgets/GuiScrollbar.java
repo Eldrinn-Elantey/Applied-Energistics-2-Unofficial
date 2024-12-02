@@ -30,6 +30,8 @@ public class GuiScrollbar implements IScrollSource {
     private int maxScroll = 0;
     private int minScroll = 0;
     private int currentScroll = 0;
+    private boolean visible = true;
+    private boolean isLatestClickOnScrollbar;
 
     public void setTexture(final String base, final String file, final int shiftX, final int shiftY) {
         txtBase = base;
@@ -39,6 +41,9 @@ public class GuiScrollbar implements IScrollSource {
     }
 
     public void draw(final AEBaseGui g) {
+        if (!visible) {
+            return;
+        }
         g.bindTexture(txtBase, txtFile);
         GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -48,6 +53,10 @@ public class GuiScrollbar implements IScrollSource {
             final int offset = (this.currentScroll - this.minScroll) * (this.height - 15) / this.getRange();
             g.drawTexturedModalRect(this.displayX, offset + this.displayY, txtShiftX, txtShiftY, this.width, 15);
         }
+    }
+
+    public void setVisible(boolean visible) {
+        this.visible = visible;
     }
 
     private int getRange() {
@@ -125,8 +134,22 @@ public class GuiScrollbar implements IScrollSource {
         if (this.getRange() == 0) {
             return;
         }
-
         if (this.contains(x, y)) {
+            this.currentScroll = (y - this.displayY);
+            this.currentScroll = this.minScroll + ((this.currentScroll * 2 * this.getRange() / this.height));
+            this.currentScroll = (this.currentScroll + 1) >> 1;
+            this.applyRange();
+            isLatestClickOnScrollbar = true;
+        } else {
+            isLatestClickOnScrollbar = false;
+        }
+    }
+
+    public void clickMove(final int y) {
+        if (this.getRange() == 0 || !isLatestClickOnScrollbar) {
+            return;
+        }
+        if (y >= this.displayY && y <= this.displayY + this.height) {
             this.currentScroll = (y - this.displayY);
             this.currentScroll = this.minScroll + ((this.currentScroll * 2 * this.getRange() / this.height));
             this.currentScroll = (this.currentScroll + 1) >> 1;

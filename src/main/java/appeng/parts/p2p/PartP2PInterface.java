@@ -135,6 +135,19 @@ public class PartP2PInterface extends PartP2PTunnelStatic<PartP2PInterface>
     }
 
     @Override
+    public NBTTagCompound getMemoryCardData() {
+        final NBTTagCompound output = super.getMemoryCardData();
+        this.duality.getConfigManager().writeToNBT(output);
+        return output;
+    }
+
+    @Override
+    public void pasteMemoryCardData(PartP2PTunnel newTunnel, NBTTagCompound data) throws GridAccessException {
+        this.duality.getConfigManager().readFromNBT(data);
+        super.pasteMemoryCardData(newTunnel, data);
+    }
+
+    @Override
     public void addToWorld() {
         super.addToWorld();
         this.duality.initialize();
@@ -158,6 +171,11 @@ public class PartP2PInterface extends PartP2PTunnelStatic<PartP2PInterface>
     @Override
     public IInventory getInventoryByName(final String name) {
         return this.duality.getInventoryByName(name);
+    }
+
+    @Override
+    public void onNeighborChanged() {
+        this.duality.updateRedstoneState();
     }
 
     @Override
@@ -387,7 +405,55 @@ public class PartP2PInterface extends PartP2PTunnelStatic<PartP2PInterface>
     }
 
     @Override
-    public boolean shouldDisplay() {
-        return IInterfaceHost.super.shouldDisplay() && !isOutput();
+    public IInventory getPatterns() {
+        if (isOutput()) {
+            PartP2PInterface input = getInput();
+            if (input != null) {
+                return input.getPatterns();
+            }
+            return IInterfaceHost.super.getPatterns();
+        }
+        return IInterfaceHost.super.getPatterns();
+    }
+
+    @Override
+    public int rows() {
+        if (isOutput()) {
+            PartP2PInterface input = getInput();
+            if (input != null) {
+                return input.rows();
+            }
+            return IInterfaceHost.super.rows();
+        }
+        return IInterfaceHost.super.rows();
+    }
+
+    @Override
+    public int rowSize() {
+        if (isOutput()) {
+            PartP2PInterface input = getInput();
+            if (input != null) {
+                return input.rowSize();
+            }
+            return IInterfaceHost.super.rowSize();
+        }
+        return IInterfaceHost.super.rowSize();
+    }
+
+    @Override
+    public String getName() {
+        if (isOutput()) {
+            PartP2PInterface input = getInput();
+            if (input != null) {
+                return input.getName();
+            }
+            return IInterfaceHost.super.getName();
+        }
+        return IInterfaceHost.super.getName();
+    }
+
+    @Override
+    public ItemStack getSelfRep() {
+        return this.getItemStack();
     }
 }

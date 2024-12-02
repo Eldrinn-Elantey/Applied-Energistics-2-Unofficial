@@ -25,10 +25,15 @@ import appeng.client.render.blocks.RenderMEChest;
 import appeng.core.features.AEFeature;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.GuiBridge;
+import appeng.integration.IntegrationRegistry;
+import appeng.integration.IntegrationType;
 import appeng.tile.storage.TileChest;
 import appeng.util.Platform;
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import gregtech.api.GregTechAPI;
+import gregtech.api.util.GTUtility;
 
 public class BlockChest extends AEBaseTileBlock {
 
@@ -51,6 +56,16 @@ public class BlockChest extends AEBaseTileBlock {
         if (tg != null && !p.isSneaking()) {
             if (Platform.isClient()) {
                 return true;
+            }
+
+            if (Loader.isModLoaded("dreamcraft")) {
+                if (IntegrationRegistry.INSTANCE.isEnabled(IntegrationType.GT)
+                        && GTUtility.isStackInList(p.getHeldItem(), GregTechAPI.sWireCutterList)) {
+                    if (tg.lockDigitalSingularityCells()) {
+                        p.addChatMessage(PlayerMessages.ChestLocked.get());
+                    }
+                    return true;
+                }
             }
 
             if (side != tg.getUp().ordinal()) {

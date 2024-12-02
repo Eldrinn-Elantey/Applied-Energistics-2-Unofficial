@@ -13,6 +13,8 @@
 
 package appeng.api.implementations.tiles;
 
+import net.minecraft.item.ItemStack;
+
 import appeng.api.networking.IGridHost;
 import appeng.api.storage.ICellContainer;
 import appeng.api.util.IOrientable;
@@ -27,25 +29,46 @@ public interface IChestOrDrive extends ICellContainer, IGridHost, IOrientable {
     /**
      * 0 - cell is missing.
      * <p>
-     * 1 - green,
+     * 1 - green, ( usually means the cell is 100% free )
      * <p>
-     * 2 - orange,
+     * 2 - blue, ( usually means available room for types or items. )
      * <p>
-     * 3 - red
+     * 3 - orange, ( usually means available room for items, but not types. )
+     * <p>
+     * 4 - red, ( usually means the cell is 100% full )
      *
      * @param slot slot index
      * @return status of the slot, one of the above indices.
      */
-    int getCellStatus(int slot);
+    default int getCellStatus(int slot) {
+        return 0;
+    }
+
+    /**
+     * 0 - item cell,
+     * <p>
+     * 1 - fluid cell,
+     * <p>
+     * 2 - essentia cell
+     *
+     * @param slot slot index
+     * @return cell type of the slot, one of the above indices.
+     */
+    default int getCellType(int slot) {
+        return 0;
+    }
 
     /**
      * @return if the device is online you should check this before providing any other information.
      */
     boolean isPowered();
 
-    /**
-     * @param slot slot index
-     * @return is the cell currently blinking to show activity.
-     */
-    boolean isCellBlinking(int slot);
+    boolean lockDigitalSingularityCells();
+
+    int applyStickyToDigitalSingularityCells(ItemStack cards);
+
+    @Deprecated
+    default boolean isCellBlinking(int slot) {
+        return false;
+    }
 }

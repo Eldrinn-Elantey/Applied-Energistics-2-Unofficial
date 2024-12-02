@@ -10,9 +10,13 @@
 
 package appeng.parts.misc;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
+
+import javax.annotation.Nullable;
 
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.entity.player.EntityPlayer;
@@ -30,6 +34,7 @@ import appeng.api.config.IncludeExclude;
 import appeng.api.config.Settings;
 import appeng.api.config.StorageFilter;
 import appeng.api.config.Upgrades;
+import appeng.api.config.YesNo;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.events.MENetworkCellArrayUpdate;
 import appeng.api.networking.events.MENetworkChannelsChanged;
@@ -45,6 +50,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartRenderHelper;
+import appeng.api.parts.PartItemStack;
 import appeng.api.storage.ICellContainer;
 import appeng.api.storage.IExternalStorageHandler;
 import appeng.api.storage.IMEInventory;
@@ -72,6 +78,7 @@ import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.inventory.InvOperation;
 import appeng.transformer.annotations.Integration.Interface;
 import appeng.transformer.annotations.Integration.Method;
+import appeng.util.IterationCounter;
 import appeng.util.Platform;
 import appeng.util.prioitylist.FuzzyPriorityList;
 import appeng.util.prioitylist.OreFilteredList;
@@ -90,11 +97,15 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
     private int priority = 0;
     private boolean cached = false;
     private MEMonitorIInventory monitor = null;
-    private MEInventoryHandler handler = null;
+    private MEInventoryHandler<IAEItemStack> handler = null;
     private int handlerHash = 0;
     private boolean wasActive = false;
     private byte resetCacheLogic = 0;
     private String oreFilterString = "";
+    /**
+     * used to read changes once when the list of extractable items was changed
+     */
+    private boolean readOncePass = false;
 
     @Reflected
     public PartStorageBus(final ItemStack is) {
@@ -102,7 +113,29 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         this.getConfigManager().registerSetting(Settings.ACCESS, AccessRestriction.READ_WRITE);
         this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.getConfigManager().registerSetting(Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
+        this.getConfigManager().registerSetting(Settings.STICKY_MODE, YesNo.NO);
         this.mySrc = new MachineSource(this);
+        if (is.getTagCompound() != null) {
+            NBTTagCompound tag = is.getTagCompound();
+            if (tag.hasKey("priority")) {
+                priority = tag.getInteger("priority");
+                // if we don't do this, the tag will stick forever to the storage bus, as it's never cleaned up,
+                // even when the item is broken with a pickaxe
+                this.is.setTagCompound(null);
+            }
+        }
+    }
+
+    @Override
+    public ItemStack getItemStack(final PartItemStack type) {
+        if (type == PartItemStack.Wrench) {
+            final NBTTagCompound tag = new NBTTagCompound();
+            tag.setInteger("priority", priority);
+            final ItemStack copy = this.is.copy();
+            copy.setTagCompound(tag);
+            return copy;
+        }
+        return super.getItemStack(type);
     }
 
     @Override
@@ -212,11 +245,47 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
             final BaseActionSource source) {
         try {
             if (this.getProxy().isActive()) {
-                this.getProxy().getStorage().postAlterationOfStoredItems(StorageChannel.ITEMS, change, this.mySrc);
+                if (!this.readOncePass) {
+                    AccessRestriction currentAccess = (AccessRestriction) this.getConfigManager()
+                            .getSetting(Settings.ACCESS);
+                    if (!currentAccess.hasPermission(AccessRestriction.READ)
+                            && !this.getInternalHandler().isVisible()) {
+                        return;
+                    }
+                }
+                Iterable<IAEItemStack> filteredChanges = this.filterChanges(change, this.readOncePass);
+                this.readOncePass = false;
+                if (filteredChanges == null) return;
+                this.getProxy().getStorage()
+                        .postAlterationOfStoredItems(StorageChannel.ITEMS, filteredChanges, this.mySrc);
             }
         } catch (final GridAccessException e) {
             // :(
         }
+    }
+
+    /**
+     * Filters the changes to only include items that pass the handlers extract filter. Will return null if none of the
+     * changes match the filter.
+     */
+    @Nullable
+    private Iterable<IAEItemStack> filterChanges(final Iterable<IAEItemStack> change, final boolean readOncePass) {
+        if (readOncePass) {
+            return change;
+        }
+
+        if (this.handler != null && this.handler.isExtractFilterActive()
+                && !this.handler.getExtractPartitionList().isEmpty()) {
+            List<IAEItemStack> filteredChanges = new ArrayList<>();
+            Predicate<IAEItemStack> extractFilterCondition = this.handler.getExtractFilterCondition();
+            for (final IAEItemStack changedItem : change) {
+                if (extractFilterCondition.test(changedItem)) {
+                    filteredChanges.add(changedItem);
+                }
+            }
+            return filteredChanges.isEmpty() ? null : Collections.unmodifiableList(filteredChanges);
+        }
+        return change;
     }
 
     @Override
@@ -349,7 +418,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         final IMEInventory<IAEItemStack> in = this.getInternalHandler();
         IItemList<IAEItemStack> before = AEApi.instance().storage().createItemList();
         if (in != null) {
-            before = in.getAvailableItems(before);
+            before = in.getAvailableItems(before, IterationCounter.fetchNewId());
         }
 
         this.cached = false;
@@ -365,13 +434,13 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
 
         IItemList<IAEItemStack> after = AEApi.instance().storage().createItemList();
         if (out != null) {
-            after = out.getAvailableItems(after);
+            after = out.getAvailableItems(after, IterationCounter.fetchNewId());
         }
 
         Platform.postListChanges(before, after, this, this.mySrc);
     }
 
-    public MEInventoryHandler getInternalHandler() {
+    public MEInventoryHandler<IAEItemStack> getInternalHandler() {
         if (this.cached) {
             return this.handler;
         }
@@ -394,6 +463,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         this.handlerHash = newHandlerHash;
         this.handler = null;
         this.monitor = null;
+        this.readOncePass = true;
         if (target != null) {
             final IExternalStorageHandler esh = AEApi.instance().registries().externalStorage()
                     .getHandler(target, this.getSide().getOpposite(), StorageChannel.ITEMS, this.mySrc);
@@ -404,22 +474,28 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
                 if (inv instanceof MEMonitorIInventory h) {
                     h.setMode((StorageFilter) this.getConfigManager().getSetting(Settings.STORAGE_FILTER));
                     h.setActionSource(new MachineSource(this));
-                }
-
-                if (inv instanceof MEMonitorIInventory) {
-                    this.monitor = (MEMonitorIInventory) inv;
+                    this.monitor = h;
                 }
 
                 if (inv != null) {
                     this.checkInterfaceVsStorageBus(target, this.getSide().getOpposite());
 
-                    this.handler = new MEInventoryHandler(inv, StorageChannel.ITEMS);
+                    this.handler = new MEInventoryHandler<IAEItemStack>(inv, StorageChannel.ITEMS);
 
-                    this.handler.setBaseAccess((AccessRestriction) this.getConfigManager().getSetting(Settings.ACCESS));
+                    AccessRestriction currentAccess = (AccessRestriction) this.getConfigManager()
+                            .getSetting(Settings.ACCESS);
+                    this.handler.setBaseAccess(currentAccess);
                     this.handler.setWhitelist(
                             this.getInstalledUpgrades(Upgrades.INVERTER) > 0 ? IncludeExclude.BLACKLIST
                                     : IncludeExclude.WHITELIST);
                     this.handler.setPriority(this.priority);
+                    // only READ since READ_WRITE would break compat of existing storage buses
+                    // could use a new setting that is applied via button or a card too
+                    this.handler.setIsExtractFilterActive(currentAccess == AccessRestriction.READ);
+
+                    if (this.getInstalledUpgrades(Upgrades.STICKY) > 0) {
+                        this.handler.setSticky(true);
+                    }
 
                     if (this.oreFilterString.isEmpty()) {
                         final IItemList<IAEItemStack> priorityList = AEApi.instance().storage().createItemList();
@@ -431,15 +507,20 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
                         }
 
                         if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
-                            this.handler.setPartitionList(
-                                    new FuzzyPriorityList(
-                                            priorityList,
-                                            (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)));
+                            FuzzyPriorityList<IAEItemStack> partitionList = new FuzzyPriorityList<>(
+                                    priorityList,
+                                    (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
+                            this.handler.setPartitionList(partitionList);
+                            this.handler.setExtractPartitionList(partitionList);
                         } else {
-                            this.handler.setPartitionList(new PrecisePriorityList(priorityList));
+                            PrecisePriorityList<IAEItemStack> partitionList = new PrecisePriorityList<>(priorityList);
+                            this.handler.setPartitionList(partitionList);
+                            this.handler.setExtractPartitionList(partitionList);
                         }
                     } else {
-                        this.handler.setPartitionList(new OreFilteredList(oreFilterString));
+                        OreFilteredList partitionList = new OreFilteredList(oreFilterString);
+                        this.handler.setPartitionList(partitionList);
+                        this.handler.setExtractPartitionList(partitionList);
                     }
 
                     if (inv instanceof IMEMonitor) {
@@ -465,7 +546,8 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
 
         try {
             // force grid to update handlers...
-            this.getProxy().getGrid().postEvent(new MENetworkCellArrayUpdate());
+            if (!(new Throwable().getStackTrace()[3].getMethodName().equals("cellUpdate")))
+                this.getProxy().getGrid().postEvent(new MENetworkCellArrayUpdate());
         } catch (final GridAccessException e) {
             // :3
         }
@@ -496,7 +578,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
     @Override
     public List<IMEInventoryHandler> getCellArray(final StorageChannel channel) {
         if (channel == StorageChannel.ITEMS) {
-            final IMEInventoryHandler out = this.getProxy().isActive() ? this.getInternalHandler() : null;
+            final IMEInventoryHandler<IAEItemStack> out = this.getProxy().isActive() ? this.getInternalHandler() : null;
             if (out != null) {
                 return Collections.singletonList(out);
             }
@@ -515,9 +597,6 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         this.getHost().markForSave();
         this.resetCache(true);
     }
-
-    @Override
-    public void blinkCell(final int slot) {}
 
     @Override
     @Method(iname = IntegrationType.BuildCraftTransport)

@@ -48,6 +48,7 @@ import appeng.parts.p2p.PartP2POpenComputers;
 import appeng.parts.p2p.PartP2PPressure;
 import appeng.parts.p2p.PartP2PRFPower;
 import appeng.parts.p2p.PartP2PRedstone;
+import appeng.parts.p2p.PartP2PSound;
 import appeng.parts.p2p.PartP2PTunnelME;
 import appeng.parts.reporting.PartConversionMonitor;
 import appeng.parts.reporting.PartCraftingTerminal;
@@ -204,18 +205,21 @@ public enum PartType {
     P2PTunnelInterface(471, EnumSet.of(AEFeature.P2PTunnel), EnumSet.noneOf(IntegrationType.class),
             PartP2PInterface.class, GuiText.IFACETunnel),
 
+    P2PTunnelSound(472, EnumSet.of(AEFeature.P2PTunnel, AEFeature.P2PTunnelSound),
+            EnumSet.noneOf(IntegrationType.class), PartP2PSound.class, GuiText.SoundTunnel),
+
     InterfaceTerminal(480, EnumSet.of(AEFeature.InterfaceTerminal), EnumSet.noneOf(IntegrationType.class),
             PartInterfaceTerminal.class),
 
     PatternTerminalEx(500, EnumSet.of(AEFeature.Patterns), EnumSet.noneOf(IntegrationType.class),
             PartPatternTerminalEx.class);
 
-    private final int baseDamage;
+    public final int baseDamage;
     private final Set<AEFeature> features;
     private final Set<IntegrationType> integrations;
     private final Class<? extends IPart> myPart;
     private final GuiText extraName;
-    private Constructor<? extends IPart> constructor;
+    public Constructor<? extends IPart> constructor;
 
     PartType(final int baseMetaValue, final Set<AEFeature> features, final Set<IntegrationType> integrations,
             final Class<? extends IPart> c) {

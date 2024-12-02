@@ -13,6 +13,7 @@ package appeng.integration.modules;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 
 import net.minecraft.client.Minecraft;
@@ -22,12 +23,13 @@ import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 
-import appeng.client.gui.AEBaseMEGui;
+import appeng.client.gui.IGuiTooltipHandler;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.client.gui.implementations.GuiCraftingCPU;
 import appeng.client.gui.implementations.GuiCraftingTerm;
 import appeng.client.gui.implementations.GuiMEMonitorable;
 import appeng.client.gui.implementations.GuiMEPortableCell;
+import appeng.client.gui.implementations.GuiOptimizePatterns;
 import appeng.client.gui.implementations.GuiPatternTerm;
 import appeng.client.gui.implementations.GuiPatternTermEx;
 import appeng.client.gui.implementations.GuiSkyChest;
@@ -48,22 +50,28 @@ import appeng.integration.modules.NEIHelpers.NEIGrinderRecipeHandler;
 import appeng.integration.modules.NEIHelpers.NEIGuiHandler;
 import appeng.integration.modules.NEIHelpers.NEIInscriberRecipeHandler;
 import appeng.integration.modules.NEIHelpers.NEIOreDictionaryFilter;
+import appeng.integration.modules.NEIHelpers.NEISearchField;
 import appeng.integration.modules.NEIHelpers.NEIWorldCraftingHandler;
 import appeng.integration.modules.NEIHelpers.TerminalCraftingSlotFinder;
+import codechicken.nei.BookmarkPanel.BookmarkRecipe;
+import codechicken.nei.BookmarkPanel.BookmarkViewMode;
 import codechicken.nei.ItemsGrid;
 import codechicken.nei.LayoutManager;
-import codechicken.nei.SearchField.ISearchProvider;
 import codechicken.nei.api.IBookmarkContainerHandler;
 import codechicken.nei.api.INEIGuiHandler;
 import codechicken.nei.api.IStackPositioner;
+import codechicken.nei.api.ItemFilter.ItemFilterProvider;
 import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.guihook.IContainerObjectHandler;
 import codechicken.nei.guihook.IContainerTooltipHandler;
+import codechicken.nei.recipe.BookmarkRecipeId;
 
 public class NEI implements INEI, IContainerTooltipHandler, IIntegrationModule, IContainerObjectHandler {
 
     @Reflected
     public static NEI instance;
+
+    public static NEISearchField searchField = new NEISearchField();
 
     private final Class<?> apiClass;
 
@@ -95,7 +103,7 @@ public class NEI implements INEI, IContainerTooltipHandler, IIntegrationModule, 
                 .getDeclaredMethod("registerUsageHandler", codechicken.nei.recipe.IUsageHandler.class);
         this.registerNEIGuiHandler = this.apiClass.getDeclaredMethod("registerNEIGuiHandler", INEIGuiHandler.class);
         registerNEIGuiHandler.invoke(apiClass, new NEIGuiHandler());
-        this.registerItemFilter = this.apiClass.getDeclaredMethod("addSearchProvider", ISearchProvider.class);
+        this.registerItemFilter = this.apiClass.getDeclaredMethod("addItemFilter", ItemFilterProvider.class);
         this.registerItemFilter.invoke(apiClass, new NEIOreDictionaryFilter());
         this.registerRecipeHandler(new NEIAEShapedRecipeHandler());
         this.registerRecipeHandler(new NEIAEShapelessRecipeHandler());
@@ -210,8 +218,8 @@ public class NEI implements INEI, IContainerTooltipHandler, IIntegrationModule, 
     @Override
     public List<String> handleItemTooltip(final GuiContainer guiScreen, final ItemStack stack, final int mouseX,
             final int mouseY, final List<String> currentToolTip) {
-        if (guiScreen instanceof AEBaseMEGui) {
-            return ((AEBaseMEGui) guiScreen).handleItemTooltip(stack, mouseX, mouseY, currentToolTip);
+        if (guiScreen instanceof IGuiTooltipHandler) {
+            return ((IGuiTooltipHandler) guiScreen).handleItemTooltip(stack, mouseX, mouseY, currentToolTip);
         }
 
         return currentToolTip;
@@ -228,8 +236,9 @@ public class NEI implements INEI, IContainerTooltipHandler, IIntegrationModule, 
 
     @Override
     public ItemStack getStackUnderMouse(GuiContainer gui, int mousex, int mousey) {
-        if (gui instanceof GuiCraftConfirm) return ((GuiCraftConfirm) gui).getHoveredStack();
-        else if (gui instanceof GuiCraftingCPU) return ((GuiCraftingCPU) gui).getHoveredStack();
+        if (gui instanceof IGuiTooltipHandler) {
+            return ((IGuiTooltipHandler) gui).getHoveredStack();
+        }
         return null;
     }
 
@@ -242,12 +251,22 @@ public class NEI implements INEI, IContainerTooltipHandler, IIntegrationModule, 
     public boolean shouldShowTooltip(GuiContainer gui) {
         if (gui instanceof GuiCraftConfirm) return ((GuiCraftConfirm) gui).getHoveredStack() == null;
         if (gui instanceof GuiCraftingCPU) return ((GuiCraftingCPU) gui).getHoveredStack() == null;
+        if (gui instanceof GuiOptimizePatterns) return ((GuiOptimizePatterns) gui).getHoveredStack() == null;
         return true;
     }
 
-    public void addItemToBookMark(ItemStack itemStack) {
+    public void addToBookmark(ItemStack output, List<ItemStack> missing) {
         ItemsGrid grid = LayoutManager.bookmarkPanel.getGrid();
         grid.setPage(grid.getNumPages() - 1);
-        LayoutManager.bookmarkPanel.addItem(itemStack);
+
+        if (output != null) {
+            BookmarkRecipe recipe = new BookmarkRecipe(output);
+            recipe.recipeId = new BookmarkRecipeId("craft-confirm", missing);
+            recipe.ingredients = missing;
+
+            LayoutManager.bookmarkPanel.addBookmarkGroup(Arrays.asList(recipe), BookmarkViewMode.TODO_LIST, false);
+        } else {
+            LayoutManager.bookmarkPanel.addBookmarkGroup(missing, BookmarkViewMode.DEFAULT);
+        }
     }
 }

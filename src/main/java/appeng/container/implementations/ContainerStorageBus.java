@@ -23,6 +23,7 @@ import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Settings;
 import appeng.api.config.StorageFilter;
 import appeng.api.config.Upgrades;
+import appeng.api.config.YesNo;
 import appeng.api.storage.IMEInventory;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IItemList;
@@ -30,6 +31,7 @@ import appeng.container.guisync.GuiSync;
 import appeng.container.slot.OptionalSlotFakeTypeOnly;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.parts.misc.PartStorageBus;
+import appeng.util.IterationCounter;
 import appeng.util.Platform;
 import appeng.util.iterators.NullIterator;
 
@@ -42,6 +44,9 @@ public class ContainerStorageBus extends ContainerUpgradeable {
 
     @GuiSync(4)
     public StorageFilter storageFilter = StorageFilter.EXTRACTABLE_ONLY;
+
+    @GuiSync(7)
+    public YesNo stickyMode = YesNo.NO;
 
     public ContainerStorageBus(final InventoryPlayer ip, final PartStorageBus te) {
         super(ip, te);
@@ -128,6 +133,7 @@ public class ContainerStorageBus extends ContainerUpgradeable {
                     (AccessRestriction) this.getUpgradeable().getConfigManager().getSetting(Settings.ACCESS));
             this.setStorageFilter(
                     (StorageFilter) this.getUpgradeable().getConfigManager().getSetting(Settings.STORAGE_FILTER));
+            this.setStickyMode((YesNo) this.getUpgradeable().getConfigManager().getSetting(Settings.STICKY_MODE));
         }
 
         this.standardDetectAndSendChanges();
@@ -157,7 +163,8 @@ public class ContainerStorageBus extends ContainerUpgradeable {
 
         Iterator<IAEItemStack> i = new NullIterator<>();
         if (cellInv != null) {
-            final IItemList<IAEItemStack> list = cellInv.getAvailableItems(AEApi.instance().storage().createItemList());
+            final IItemList<IAEItemStack> list = cellInv
+                    .getAvailableItems(AEApi.instance().storage().createItemList(), IterationCounter.fetchNewId());
             i = list.iterator();
         }
 
@@ -178,10 +185,6 @@ public class ContainerStorageBus extends ContainerUpgradeable {
         return this.rwMode;
     }
 
-    private void setReadWriteMode(final AccessRestriction rwMode) {
-        this.rwMode = rwMode;
-    }
-
     public StorageFilter getStorageFilter() {
         return this.storageFilter;
     }
@@ -189,4 +192,17 @@ public class ContainerStorageBus extends ContainerUpgradeable {
     private void setStorageFilter(final StorageFilter storageFilter) {
         this.storageFilter = storageFilter;
     }
+
+    public YesNo getStickyMode() {
+        return this.stickyMode;
+    }
+
+    private void setStickyMode(final YesNo stickyMode) {
+        this.stickyMode = stickyMode;
+    }
+
+    private void setReadWriteMode(final AccessRestriction rwMode) {
+        this.rwMode = rwMode;
+    }
+
 }

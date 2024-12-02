@@ -10,7 +10,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -19,8 +18,6 @@ import javax.annotation.Nonnull;
 import net.minecraft.world.World;
 
 import org.apache.logging.log4j.Level;
-
-import com.google.common.collect.ImmutableList;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
@@ -37,10 +34,10 @@ import appeng.crafting.v2.CraftingRequest;
 import appeng.crafting.v2.CraftingRequest.SubstitutionMode;
 import appeng.crafting.v2.CraftingTreeSerializer;
 import appeng.crafting.v2.ITreeSerializable;
+import appeng.crafting.v2.resolvers.CraftingTask.State;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
-import appeng.util.item.HashBasedItemList;
 import io.netty.buffer.ByteBuf;
 
 public class CraftableItemResolver implements CraftingRequestResolver<IAEItemStack> {
@@ -112,41 +109,34 @@ public class CraftableItemResolver implements CraftingRequestResolver<IAEItemSta
             this.allowSimulation = allowSimulation;
             this.isComplex = isComplex;
 
-            HashBasedItemList pInputs = new HashBasedItemList();
-            HashBasedItemList pOutputs = new HashBasedItemList();
-            HashBasedItemList pRecInputs = new HashBasedItemList();
-            calculatePatternIO(pattern, pInputs, pOutputs, pRecInputs);
-            this.patternInputs = pInputs.toArray(new IAEItemStack[0]);
-            this.patternOutputs = pOutputs.toArray(new IAEItemStack[0]);
-            this.patternRecursionInputs = pRecInputs.toArray(new IAEItemStack[0]);
-            IAEItemStack foundMatchingOutput = Arrays.stream(patternOutputs).filter(this::isOutputSameAs).findFirst()
-                    .orElse(null);
-            if (foundMatchingOutput == null) {
-                state = State.FAILURE;
-                throw new IllegalStateException("Invalid pattern crafting step for " + request);
-            }
-            this.matchingOutput = foundMatchingOutput;
-        }
+            IAEItemStack[] patternInputs = pattern.getCondensedInputs();
+            IAEItemStack[] patternOutputs = pattern.getCondensedOutputs();
+            if (!hasRecursiveInputs(patternInputs, patternOutputs)) {
+                this.patternInputs = patternInputs;
+                this.patternOutputs = patternOutputs;
+                this.patternRecursionInputs = new IAEItemStack[0];
+            } else {
+                patternInputs = Arrays.stream(patternInputs).map(IAEItemStack::copy).toArray(IAEItemStack[]::new);
+                patternOutputs = Arrays.stream(patternOutputs).map(IAEItemStack::copy).toArray(IAEItemStack[]::new);
 
-        private static void calculatePatternIO(ICraftingPatternDetails pattern, HashBasedItemList pInputs,
-                HashBasedItemList pOutputs, HashBasedItemList pRecInputs) {
-            Arrays.stream(pattern.getInputs()).filter(Objects::nonNull).forEach(pInputs::add);
-            Arrays.stream(pattern.getOutputs()).filter(Objects::nonNull).forEach(pOutputs::add);
-            for (IAEItemStack output : pOutputs) {
-                IAEItemStack input = pInputs.findPrecise(output);
-                if (input != null) {
-                    final long netProduced = output.getStackSize() - input.getStackSize();
-                    if (netProduced > 0) {
-                        pRecInputs.add(input);
-                        input.setStackSize(0);
-                        output.setStackSize(netProduced);
-                    } else {
-                        // Ensure recInput.stackSize + input.stackSize == original input.stackSize
-                        pRecInputs.add(input.copy().setStackSize(input.getStackSize() + netProduced));
-                        input.setStackSize(-netProduced);
-                        output.setStackSize(0);
-                    }
+                this.patternRecursionInputs = calculateRecursiveInputs(patternInputs, patternOutputs);
+                // Inputs or outputs have been modified, so we need to filter out empty stacks
+                this.patternInputs = filterMeaningfulStacks(patternInputs);
+                this.patternOutputs = filterMeaningfulStacks(patternOutputs);
+            }
+
+            IAEItemStack matchingOutput = null;
+            for (IAEItemStack patternOutput : this.patternOutputs) {
+                if (isOutputSameAs(patternOutput)) {
+                    matchingOutput = patternOutput;
+                    break;
                 }
+            }
+
+            this.matchingOutput = matchingOutput;
+
+            if (matchingOutput == null) {
+                state = State.FAILURE;
             }
         }
 
@@ -162,13 +152,85 @@ public class CraftableItemResolver implements CraftingRequestResolver<IAEItemSta
             this.craftingMachine = serializer.readItemStack();
             this.totalCraftsDone = buffer.readLong();
 
-            HashBasedItemList pInputs = new HashBasedItemList();
-            HashBasedItemList pOutputs = new HashBasedItemList();
-            HashBasedItemList pRecInputs = new HashBasedItemList();
-            calculatePatternIO(pattern, pInputs, pOutputs, pRecInputs);
-            this.patternInputs = pInputs.toArray(new IAEItemStack[0]);
-            this.patternOutputs = pOutputs.toArray(new IAEItemStack[0]);
-            this.patternRecursionInputs = pRecInputs.toArray(new IAEItemStack[0]);
+            IAEItemStack[] patternInputs = pattern.getCondensedInputs();
+            IAEItemStack[] patternOutputs = pattern.getCondensedOutputs();
+            if (!hasRecursiveInputs(patternInputs, patternOutputs)) {
+                this.patternInputs = patternInputs;
+                this.patternOutputs = patternOutputs;
+                this.patternRecursionInputs = new IAEItemStack[0];
+            } else {
+                patternInputs = Arrays.stream(patternInputs).map(IAEItemStack::copy).toArray(IAEItemStack[]::new);
+                patternOutputs = Arrays.stream(patternOutputs).map(IAEItemStack::copy).toArray(IAEItemStack[]::new);
+
+                this.patternRecursionInputs = calculateRecursiveInputs(patternInputs, patternOutputs);
+                // Inputs or outputs have been modified, so we need to filter out empty stacks
+                this.patternInputs = filterMeaningfulStacks(patternInputs);
+                this.patternOutputs = filterMeaningfulStacks(patternOutputs);
+            }
+        }
+
+        private static IAEItemStack[] calculateRecursiveInputs(IAEItemStack[] pInputs, IAEItemStack[] pOutputs) {
+            IAEItemStack[] recInputs = null;
+            // While this is a O(n*m) algorithm, no allocations are needed except for the actual output.
+            for (IAEItemStack output : pOutputs) {
+                for (IAEItemStack input : pInputs) {
+                    if (!input.equals(output)) {
+                        continue;
+                    }
+
+                    final long netProduced = output.getStackSize() - input.getStackSize();
+
+                    IAEItemStack recInput;
+                    if (netProduced > 0) {
+                        recInput = input.copy();
+                        input.setStackSize(0);
+                        output.setStackSize(netProduced);
+                    } else {
+                        // Ensure recInput.stackSize + input.stackSize == original input.stackSize
+                        recInput = input.copy().setStackSize(input.getStackSize() + netProduced);
+                        input.setStackSize(-netProduced);
+                        output.setStackSize(0);
+                    }
+
+                    if (!recInput.isMeaningful()) {
+                        continue;
+                    }
+
+                    if (recInputs == null) {
+                        recInputs = new IAEItemStack[] { recInput };
+                    } else {
+                        recInputs = Arrays.copyOf(recInputs, recInputs.length + 1);
+                        recInputs[recInputs.length - 1] = recInput;
+                    }
+                }
+            }
+
+            return recInputs == null ? new IAEItemStack[0] : recInputs;
+        }
+
+        private static boolean hasRecursiveInputs(IAEItemStack[] pInputs, IAEItemStack[] pOutputs) {
+            for (IAEItemStack output : pOutputs) {
+                for (IAEItemStack input : pInputs) {
+                    if (input.equals(output)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static IAEItemStack[] filterMeaningfulStacks(IAEItemStack[] stacks) {
+            int i = 0, j = 0;
+            for (; i < stacks.length; i++) {
+                IAEItemStack stack = stacks[i];
+                if (stack.isMeaningful()) {
+                    stacks[j] = stack;
+                    j++;
+                }
+            }
+
+            return i == j ? stacks : Arrays.copyOf(stacks, j);
         }
 
         @Override
@@ -350,7 +412,8 @@ public class CraftableItemResolver implements CraftingRequestResolver<IAEItemSta
                 return new StepOutput(Collections.emptyList());
             } else {
                 request.patternParents.add(this.pattern);
-                ArrayList<CraftingRequest<IAEItemStack>> newChildren = new ArrayList<>(patternInputs.length);
+                ArrayList<CraftingRequest<IAEItemStack>> newChildren = new ArrayList<>(
+                        patternRecursionInputs.length + patternInputs.length);
                 if (isComplex) {
                     if (toCraft > 1) {
                         throw new IllegalStateException();
@@ -505,7 +568,8 @@ public class CraftableItemResolver implements CraftingRequestResolver<IAEItemSta
             }
             for (IAEItemStack output : patternOutputs) {
                 targetPlan.addRequestable(
-                        output.copy().setStackSize(0).setCountRequestable(output.getStackSize() * totalCraftsDone));
+                        output.copy().setStackSize(0).setCountRequestable(output.getStackSize() * totalCraftsDone)
+                                .setCountRequestableCrafts(totalCraftsDone));
             }
         }
 
@@ -575,7 +639,7 @@ public class CraftableItemResolver implements CraftingRequestResolver<IAEItemSta
     @Override
     public List<CraftingTask> provideCraftingRequestResolvers(@Nonnull CraftingRequest<IAEItemStack> request,
             @Nonnull CraftingContext context) {
-        final ImmutableList.Builder<CraftingTask> tasks = new ImmutableList.Builder<>();
+        final ArrayList<CraftingTask> tasks = new ArrayList<>();
         final Set<ICraftingPatternDetails> denyList = request.patternParents;
         final List<ICraftingPatternDetails> patterns = new ArrayList<>(context.getPrecisePatternsFor(request.stack));
         patterns.removeAll(denyList);
@@ -589,14 +653,22 @@ public class CraftableItemResolver implements CraftingRequestResolver<IAEItemSta
             patterns.addAll(fuzzyPatterns);
         }
         int priority = CraftingTask.PRIORITY_CRAFT_OFFSET + patterns.size() - 1;
+
+        tasks.ensureCapacity(patterns.size() + 1);
         for (ICraftingPatternDetails pattern : patterns) {
             if (context.isPatternComplex(pattern)) {
                 logComplexPattrn(pattern, request.remainingToProcess);
                 for (int i = 0; i < request.remainingToProcess; i++) {
-                    tasks.add(new CraftFromPatternTask(request, pattern, priority, false, true));
+                    CraftFromPatternTask task = new CraftFromPatternTask(request, pattern, priority, false, true);
+                    if (task.getState() != State.FAILURE) {
+                        tasks.add(task);
+                    }
                 }
             } else {
-                tasks.add(new CraftFromPatternTask(request, pattern, priority, false, false));
+                CraftFromPatternTask task = new CraftFromPatternTask(request, pattern, priority, false, false);
+                if (task.getState() != State.FAILURE) {
+                    tasks.add(task);
+                }
             }
             priority--;
         }
@@ -605,13 +677,24 @@ public class CraftableItemResolver implements CraftingRequestResolver<IAEItemSta
             ICraftingPatternDetails pattern = patterns.get(0);
             if (context.isPatternComplex(pattern)) {
                 for (int i = 0; i < request.remainingToProcess; i++) {
-                    tasks.add(new CraftFromPatternTask(request, pattern, priority, true, true));
+                    CraftFromPatternTask task = new CraftFromPatternTask(request, pattern, priority, true, true);
+                    if (task.getState() != State.FAILURE) {
+                        tasks.add(task);
+                    }
                 }
             } else {
-                tasks.add(
-                        new CraftFromPatternTask(request, pattern, CraftingTask.PRIORITY_SIMULATE_CRAFT, true, false));
+                CraftFromPatternTask task = new CraftFromPatternTask(
+                        request,
+                        pattern,
+                        CraftingTask.PRIORITY_SIMULATE_CRAFT,
+                        true,
+                        false);
+                if (task.getState() != State.FAILURE) {
+                    tasks.add(task);
+                }
             }
         }
-        return tasks.build();
+
+        return Collections.unmodifiableList(tasks);
     }
 }

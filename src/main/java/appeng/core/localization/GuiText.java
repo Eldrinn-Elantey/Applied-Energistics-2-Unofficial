@@ -49,6 +49,7 @@ public enum GuiText {
     PortableCell,
 
     NetworkTool,
+    AdvancedNetworkTool,
     PowerUsageRate,
     PowerInputRate,
     Installed,
@@ -72,6 +73,15 @@ public enum GuiText {
     Inscriber,
     QuartzCuttingKnife,
 
+    PatternOptimizer,
+    StepsPerCraft,
+    PatternsAffected,
+    Multiplied,
+    MultipliedBy,
+    CurrentPatternOutput,
+    NewPatternOutput,
+    Optimize,
+
     // tunnel names
     METunnel,
     ItemTunnel,
@@ -80,6 +90,7 @@ public enum GuiText {
     FluidTunnel,
     OCTunnel,
     LightTunnel,
+    SoundTunnel,
     RFTunnel,
     PressureTunnel,
     GTTunnel,
@@ -141,10 +152,13 @@ public enum GuiText {
     SwitchCraftingSimulationDisplayMode,
 
     FromStorage,
+    FromStoragePercent,
     ToCraft,
+    ToCraftRequests,
     CraftingPlan,
     CalculatingWait,
     Start,
+    Merge,
     Bytes,
     Set,
 
@@ -165,6 +179,8 @@ public enum GuiText {
     UnknownItem,
 
     InterfaceTerminalHint,
+    PatternOptimization,
+    PatternOptimizationHint,
     Range,
     TransparentFacades,
     TransparentFacadesHint,
@@ -182,6 +198,8 @@ public enum GuiText {
     Precise,
     Fuzzy,
     Filter,
+    Sticky,
+    Contains,
 
     // Used in a terminal to indicate that an item is craftable
     SmallFontCraft,
@@ -196,6 +214,14 @@ public enum GuiText {
     // oredictionary filter GUI label
     OreFilterLabel,
 
+    PriorityCard,
+    PriorityCardTooltip,
+    PriorityCardTooltipModeEdit,
+    PriorityCardTooltipModeView,
+    PriorityCardTooltipModeSet,
+    PriorityCardTooltipModeInc,
+    PriorityCardTooltipModeDec,
+
     HoldShiftForTooltip,
     HoldShiftClick_HIGHLIGHT_INTERFACE,
 
@@ -205,7 +231,25 @@ public enum GuiText {
     VoidCellTooltip,
 
     // If a thing is deprecated
-    Deprecated;
+    Deprecated,
+
+    // Network bytes status
+    NetworkCellStatus,
+    NetworkItemCellCount,
+    NetworkFluidCellCount,
+    NetworkEssentiaCellCount,
+    Green,
+    Blue,
+    Orange,
+    Red,
+    NetworkBytesDetails,
+    Items,
+    Fluids,
+    Essentias,
+    TypesInfo,
+    BytesInfo,
+    ToFollow,
+    ToUnfollow;
 
     private final String root;
 

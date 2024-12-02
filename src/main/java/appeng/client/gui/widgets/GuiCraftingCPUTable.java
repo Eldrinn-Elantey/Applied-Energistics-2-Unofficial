@@ -3,13 +3,16 @@ package appeng.client.gui.widgets;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.List;
+import java.util.function.Predicate;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.item.ItemStack;
 
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
+import appeng.api.AEApi;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.container.implementations.ContainerCPUTable;
@@ -25,10 +28,11 @@ public class GuiCraftingCPUTable {
 
     private final AEBaseGui parent;
     private final ContainerCPUTable container;
+    private final Predicate<CraftingCPUStatus> jobMergeable;
 
     public static final int CPU_TABLE_WIDTH = 94;
-    public static final int CPU_TABLE_HEIGHT = 164;
-    public static final int CPU_TABLE_SLOTS = 6;
+    public static int CPU_TABLE_HEIGHT = 164;
+    public static int CPU_TABLE_SLOTS = 6;
     public static final int CPU_TABLE_SLOT_XOFF = 100;
     public static final int CPU_TABLE_SLOT_YOFF = 0;
     public static final int CPU_TABLE_SLOT_WIDTH = 67;
@@ -38,14 +42,20 @@ public class GuiCraftingCPUTable {
 
     private String selectedCPUName = "";
 
-    public GuiCraftingCPUTable(AEBaseGui parent, ContainerCPUTable container) {
+    public GuiCraftingCPUTable(AEBaseGui parent, ContainerCPUTable container,
+            Predicate<CraftingCPUStatus> jobMergeable) {
         this.parent = parent;
         this.container = container;
+        this.jobMergeable = jobMergeable;
         this.cpuScrollbar = new GuiScrollbar();
         this.cpuScrollbar.setLeft(-16);
         this.cpuScrollbar.setTop(19);
         this.cpuScrollbar.setWidth(12);
-        this.cpuScrollbar.setHeight(137);
+        updateScrollBar();
+    }
+
+    private void updateScrollBar() {
+        this.cpuScrollbar.setHeight(CPU_TABLE_HEIGHT - 27);
     }
 
     public ContainerCPUTable getContainer() {
@@ -77,6 +87,8 @@ public class GuiCraftingCPUTable {
         final int selectedCpuSerial = container.selectedCpuSerial;
         final int firstCpu = this.cpuScrollbar.getCurrentScroll();
         CraftingCPUStatus hoveredCpu = hitCpu(mouseX - guiLeft, mouseY - guiTop);
+        final ItemStack craftingAccelerator = AEApi.instance().definitions().blocks().craftingAccelerator()
+                .maybeStack(1).orNull();
         {
             FontRenderer font = Minecraft.getMinecraft().fontRenderer;
             for (int i = firstCpu; i < firstCpu + CPU_TABLE_SLOTS; i++) {
@@ -92,6 +104,8 @@ public class GuiCraftingCPUTable {
                 if (cpu.getSerial() == selectedCpuSerial) {
                     if (!container.getCpuFilter().test(cpu)) {
                         GL11.glColor4f(1.0F, 0.25F, 0.25F, 1.0F);
+                    } else if (jobMergeable.test(cpu)) {
+                        GL11.glColor4f(1.0F, 1.0F, 0.25F, 1.0F);
                     } else {
                         GL11.glColor4f(0.0F, 0.8352F, 1.0F, 1.0F);
                     }
@@ -99,6 +113,8 @@ public class GuiCraftingCPUTable {
                     GL11.glColor4f(0.65F, 0.9F, 1.0F, 1.0F);
                 } else if (!container.getCpuFilter().test(cpu)) {
                     GL11.glColor4f(0.9F, 0.65F, 0.65F, 1.0F);
+                } else if (jobMergeable.test(cpu)) {
+                    GL11.glColor4f(1.0F, 1.0F, 0.7F, 1.0F);
                 } else {
                     GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
                 }
@@ -149,17 +165,23 @@ public class GuiCraftingCPUTable {
                     GL11.glTranslatef(x + CPU_TABLE_SLOT_WIDTH - 19, y + 3, 0);
                     parent.drawItem(0, 0, craftingStack.getItemStack());
                 } else {
-                    final int iconIndex = 16 * 4 + 3;
-                    parent.bindTexture("guis/states.png");
-                    final int uv_y = iconIndex / 16;
-                    final int uv_x = iconIndex - uv_y * 16;
 
                     GL11.glScalef(0.5f, 0.5f, 1.0f);
                     GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-                    parent.drawTexturedModalRect(0, 0, uv_x * 16, uv_y * 16, 16, 16);
-                    GL11.glTranslatef(18.0f, 2.0f, 0.0f);
-                    GL11.glScalef(1.5f, 1.5f, 1.0f);
+                    parent.bindTexture("guis/states.png");
+                    parent.drawTexturedModalRect(0, 0, 3 * 16, 4 * 16, 16, 16);
+                    GL11.glColor4f(0.5F, 0.5F, 0.5F, 1.0F);
+                    parent.drawItem(16 * 4 + 4, 0, craftingAccelerator);
+                    GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+                    GL11.glTranslatef(18.0f, 6.0f, 0.0f);
+                    GL11.glScalef(1.1f, 1.1f, 1f);
+
                     font.drawString(cpu.formatStorage(), 0, 0, GuiColors.CraftingStatusCPUStorage.getColor());
+                    font.drawString(
+                            cpu.formatShorterCoprocessors(),
+                            16 * 3 + 15,
+                            0,
+                            GuiColors.CraftingStatusCPUStorage.getColor());
                 }
                 GL11.glPopMatrix();
             }
@@ -190,7 +212,14 @@ public class GuiCraftingCPUTable {
                 tooltip.append(NumberFormat.getInstance().format(hoveredCpu.getTotalItems()));
                 tooltip.append('\n');
             }
-            if (hoveredCpu.getStorage() > 0) {
+            if (hoveredCpu.getUsedStorage() > 0) {
+                tooltip.append(GuiText.BytesUsed.getLocal());
+                tooltip.append(": ");
+                tooltip.append(hoveredCpu.formatUsedStorage());
+                tooltip.append(" / ");
+                tooltip.append(hoveredCpu.formatStorage());
+                tooltip.append('\n');
+            } else if (hoveredCpu.getStorage() > 0) {
                 tooltip.append(GuiText.Bytes.getLocal());
                 tooltip.append(": ");
                 tooltip.append(hoveredCpu.formatStorage());
@@ -199,18 +228,30 @@ public class GuiCraftingCPUTable {
             if (hoveredCpu.getCoprocessors() > 0) {
                 tooltip.append(GuiText.CoProcessors.getLocal());
                 tooltip.append(": ");
-                tooltip.append(NumberFormat.getInstance().format(hoveredCpu.getCoprocessors()));
+                tooltip.append(hoveredCpu.formatCoprocessors());
                 tooltip.append('\n');
             }
             if (tooltip.length() > 0) {
-                parent.drawTooltip(mouseX - offsetX, mouseY - offsetY, 0, tooltip.toString());
+                parent.drawTooltip(mouseX - offsetX, mouseY - offsetY, tooltip.toString());
             }
         }
     }
 
     public void drawBG(int offsetX, int offsetY) {
         parent.bindTexture("guis/cpu_selector.png");
-        parent.drawTexturedModalRect(offsetX - CPU_TABLE_WIDTH, offsetY, 0, 0, CPU_TABLE_WIDTH, CPU_TABLE_HEIGHT);
+        if (CPU_TABLE_HEIGHT != 164) {
+            parent.drawTexturedModalRect(offsetX - CPU_TABLE_WIDTH, offsetY, 0, 0, CPU_TABLE_WIDTH, 41);
+            int y = 41;
+            int rows = CPU_TABLE_SLOTS;
+            for (int row = 1; row < rows - 1; row++) {
+                parent.drawTexturedModalRect(offsetX - CPU_TABLE_WIDTH, offsetY + y, 0, 41, CPU_TABLE_WIDTH, 23);
+                y += 23;
+            }
+            parent.drawTexturedModalRect(offsetX - CPU_TABLE_WIDTH, offsetY + y, 0, 132, CPU_TABLE_WIDTH, 31);
+        } else {
+            parent.drawTexturedModalRect(offsetX - CPU_TABLE_WIDTH, offsetY, 0, 0, CPU_TABLE_WIDTH, CPU_TABLE_HEIGHT);
+        }
+        updateScrollBar();
     }
 
     /**
@@ -253,7 +294,7 @@ public class GuiCraftingCPUTable {
      */
     public void mouseClickMove(int xCoord, int yCoord) {
         if (cpuScrollbar != null) {
-            cpuScrollbar.click(parent, xCoord, yCoord);
+            cpuScrollbar.clickMove(yCoord);
         }
     }
 
@@ -277,12 +318,7 @@ public class GuiCraftingCPUTable {
 
     public boolean hideItemPanelSlot(int x, int y, int w, int h) {
         x += CPU_TABLE_WIDTH;
-        boolean xInside = (x >= 0 && x < CPU_TABLE_SLOT_WIDTH + 9) || (x + w >= 0 && x + w < CPU_TABLE_SLOT_WIDTH + 9)
-                || (x <= 0 && x + w >= CPU_TABLE_SLOT_WIDTH + 9);
-        boolean yInside = (y >= 0 && y < 19 + CPU_TABLE_SLOTS * CPU_TABLE_SLOT_HEIGHT)
-                || (y + h >= 0 && y + h < 19 + CPU_TABLE_SLOTS * CPU_TABLE_SLOT_HEIGHT)
-                || (y < 0 && y + h >= 19 + CPU_TABLE_SLOTS * CPU_TABLE_SLOT_HEIGHT);
-        return xInside && yInside;
+        return x + w >= 0 && x <= CPU_TABLE_WIDTH && y + h >= 0 && y <= CPU_TABLE_HEIGHT;
     }
 
     public void cycleCPU(boolean backwards) {
@@ -303,7 +339,13 @@ public class GuiCraftingCPUTable {
         for (int i = 0; i < cpus.size(); i++) {
             next = next % cpus.size();
             CraftingCPUStatus cpu = cpus.get(next);
-            if (cpu.isBusy() == preferBusy && container.getCpuFilter().test(cpu)) {
+            if (preferBusy) {
+                // If viewing crafting status, pick next busy CPU (subject to filter)
+                if (cpu.isBusy() && container.getCpuFilter().test(cpu)) {
+                    break;
+                }
+            } else if (container.getCpuFilter().test(cpu)) {
+                // If viewing crafting confirmation, pick next compatible CPU
                 break;
             } else {
                 next += next_increment;

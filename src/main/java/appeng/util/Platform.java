@@ -10,6 +10,7 @@
 
 package appeng.util;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.security.InvalidParameterException;
@@ -150,7 +151,7 @@ public class Platform {
      * random source, use it for item drop locations...
      */
     private static final Random RANDOM_GENERATOR = new Random();
-    private static final WeakHashMap<World, EntityPlayer> FAKE_PLAYERS = new WeakHashMap<>();
+    private static final WeakHashMap<World, WeakReference<EntityPlayer>> FAKE_PLAYERS = new WeakHashMap<>();
     private static Field tagList;
     private static Class playerInstance;
     private static Method getOrCreateChunkWatcher;
@@ -158,6 +159,18 @@ public class Platform {
     private static GameProfile fakeProfile = new GameProfile(
             UUID.fromString("839eb18c-50bc-400c-8291-9383f09763e7"),
             "[AE2Player]");
+    private static final String[] BYTE_UNIT = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "BB" };
+    private static final String[] NUM_UNIT = { "K", "M", "B", "T" };
+    private static final double[] BYTE_LIMIT;
+    private static final long[] NUM_LIMIT = { 1_000, 1_000_000, 1_000_000_000, 1_000_000_000_000l };
+    private static final DecimalFormat df = new DecimalFormat("#.##");
+
+    static {
+        BYTE_LIMIT = new double[10];
+        for (int i = 0; i < 10; i++) {
+            BYTE_LIMIT[i] = Math.pow(2, i * 10);
+        }
+    }
 
     public static Random getRandom() {
         return RANDOM_GENERATOR;
@@ -880,13 +893,16 @@ public class Platform {
             throw new InvalidParameterException("World is null.");
         }
 
-        final EntityPlayer wrp = FAKE_PLAYERS.get(w);
-        if (wrp != null) {
-            return wrp;
+        final WeakReference<EntityPlayer> weakRef = FAKE_PLAYERS.get(w);
+        if (weakRef != null) {
+            EntityPlayer fakePlayer = weakRef.get();
+            if (fakePlayer != null) {
+                return fakePlayer;
+            }
         }
 
         final EntityPlayer p = FakePlayerFactory.get(w, fakeProfile);
-        FAKE_PLAYERS.put(w, p);
+        FAKE_PLAYERS.put(w, new WeakReference<>(p));
         return p;
     }
 
@@ -1334,7 +1350,7 @@ public class Platform {
             myItems = AEApi.instance().registries().cell().getCellInventory(removed, null, StorageChannel.ITEMS);
 
             if (myItems != null) {
-                for (final IAEItemStack is : myItems.getAvailableItems(itemChanges)) {
+                for (final IAEItemStack is : myItems.getAvailableItems(itemChanges, IterationCounter.fetchNewId())) {
                     is.setStackSize(-is.getStackSize());
                 }
             }
@@ -1342,7 +1358,7 @@ public class Platform {
             myFluids = AEApi.instance().registries().cell().getCellInventory(removed, null, StorageChannel.FLUIDS);
 
             if (myFluids != null) {
-                for (final IAEFluidStack is : myFluids.getAvailableItems(fluidChanges)) {
+                for (final IAEFluidStack is : myFluids.getAvailableItems(fluidChanges, IterationCounter.fetchNewId())) {
                     is.setStackSize(-is.getStackSize());
                 }
             }
@@ -1352,13 +1368,13 @@ public class Platform {
             myItems = AEApi.instance().registries().cell().getCellInventory(added, null, StorageChannel.ITEMS);
 
             if (myItems != null) {
-                myItems.getAvailableItems(itemChanges);
+                myItems.getAvailableItems(itemChanges, IterationCounter.fetchNewId());
             }
 
             myFluids = AEApi.instance().registries().cell().getCellInventory(added, null, StorageChannel.FLUIDS);
 
             if (myFluids != null) {
-                myFluids.getAvailableItems(fluidChanges);
+                myFluids.getAvailableItems(fluidChanges, IterationCounter.fetchNewId());
             }
         }
         if (myItems == null) {
@@ -1862,5 +1878,32 @@ public class Platform {
      */
     public static long ceilDiv(long a, long b) {
         return Math.addExact(Math.addExact(a, b), -1) / b;
+    }
+
+    /**
+     * From bytes to KB,MB,GB,TB like
+     * 
+     * @param n Bytes number
+     * @return String that like 1 GB or 1.4 TB
+     */
+    public static String formatByteDouble(final double n) {
+        for (int i = 1; i < BYTE_LIMIT.length; i++) {
+            if (n < BYTE_LIMIT[i]) {
+                return df.format(n / BYTE_LIMIT[i - 1]) + " " + BYTE_UNIT[i - 1];
+            }
+        }
+        return (n / BYTE_LIMIT[0]) + " " + BYTE_UNIT[0];
+    }
+
+    public static String formatNumberLong(final long n) {
+        if (n > 1_000) {
+            for (int i = 1; i < NUM_LIMIT.length; i++) {
+                if (n < NUM_LIMIT[i]) {
+                    return String.valueOf(n / NUM_LIMIT[i - 1]) + " " + NUM_UNIT[i - 1];
+                }
+            }
+        }
+
+        return String.valueOf(n);
     }
 }

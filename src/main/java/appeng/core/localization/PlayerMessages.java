@@ -20,7 +20,8 @@ public enum PlayerMessages {
     LoadedSettings,
     SavedSettings,
     MachineNotPowered,
-
+    DriveLocked,
+    ChestLocked,
     isNowLocked,
     isNowUnlocked,
     AmmoDepleted,
@@ -37,13 +38,25 @@ public enum PlayerMessages {
     TunnelOutputsAreAt,
     InterfaceInOtherDim,
     InterfaceHighlighted,
-    CraftingItemsWentMissing;
+    LevelEmitterInAnotherDim,
+    LevelEmitterHighlighted,
+    P2PInAnotherDim,
+    P2PHighlighted,
+    CraftingItemsWentMissing,
+    PriorityInvalidTarget,
+    PriorityReadout,
+    PriorityConfigured,
+    FinishCraftingRemind;
 
     public IChatComponent get() {
         return new ChatComponentTranslation(this.getName());
     }
 
+    public IChatComponent get(Object... args) {
+        return new ChatComponentTranslation(this.getName(), args);
+    }
+
     public String getName() {
-        return "chat.appliedenergistics2." + this.toString();
+        return "chat.appliedenergistics2." + this.name();
     }
 }

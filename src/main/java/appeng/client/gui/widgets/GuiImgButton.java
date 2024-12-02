@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.util.StatCollector;
 
 import org.lwjgl.opengl.GL11;
@@ -23,18 +24,22 @@ import org.lwjgl.opengl.GL11;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.ActionItems;
 import appeng.api.config.AdvancedBlockingMode;
+import appeng.api.config.CellType;
 import appeng.api.config.CondenserOutput;
 import appeng.api.config.CraftingMode;
+import appeng.api.config.CraftingSortOrder;
 import appeng.api.config.CraftingStatus;
 import appeng.api.config.FullnessMode;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.InsertionMode;
 import appeng.api.config.ItemSubstitution;
 import appeng.api.config.LevelType;
+import appeng.api.config.LockCraftingMode;
 import appeng.api.config.OperationMode;
 import appeng.api.config.PatternBeSubstitution;
 import appeng.api.config.PatternSlotConfig;
 import appeng.api.config.PowerUnits;
+import appeng.api.config.PriorityCardMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.RelativeDirection;
 import appeng.api.config.SchedulingMode;
@@ -44,12 +49,15 @@ import appeng.api.config.SidelessMode;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.StorageFilter;
+import appeng.api.config.StringOrder;
 import appeng.api.config.TerminalStyle;
 import appeng.api.config.TypeFilter;
 import appeng.api.config.ViewItems;
 import appeng.api.config.YesNo;
 import appeng.client.texture.ExtraBlockTextures;
 import appeng.core.localization.ButtonToolTips;
+import appeng.core.localization.GuiText;
+import appeng.util.Platform;
 
 public class GuiImgButton extends GuiButton implements ITooltip {
 
@@ -305,6 +313,39 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(69, Settings.SORT_BY, SortOrder.MOD, ButtonToolTips.SortBy, ButtonToolTips.Mod);
 
             this.registerApp(
+                    64,
+                    Settings.CRAFTING_SORT_BY,
+                    CraftingSortOrder.NAME,
+                    ButtonToolTips.SortBy,
+                    ButtonToolTips.ItemName);
+            this.registerApp(
+                    65,
+                    Settings.CRAFTING_SORT_BY,
+                    CraftingSortOrder.AMOUNT,
+                    ButtonToolTips.SortBy,
+                    ButtonToolTips.NumberOfItems);
+            this.registerApp(
+                    18,
+                    Settings.CRAFTING_SORT_BY,
+                    CraftingSortOrder.CRAFTS,
+                    ButtonToolTips.SortBy,
+                    GuiText.ToCraftRequests.getUnlocalized());
+
+            this.registerApp(
+                    69,
+                    Settings.CRAFTING_SORT_BY,
+                    CraftingSortOrder.MOD,
+                    ButtonToolTips.SortBy,
+                    ButtonToolTips.Mod);
+
+            this.registerApp(
+                    74,
+                    Settings.CRAFTING_SORT_BY,
+                    CraftingSortOrder.PERCENT,
+                    ButtonToolTips.SortBy,
+                    ButtonToolTips.UsedPercent);
+
+            this.registerApp(
                     66,
                     Settings.ACTIONS,
                     ActionItems.WRENCH,
@@ -438,6 +479,18 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                     YesNo.NO,
                     ButtonToolTips.InterfaceBlockingMode,
                     ButtonToolTips.NonBlocking);
+            this.registerApp(
+                    16 + 9,
+                    Settings.SMART_BLOCK,
+                    YesNo.YES,
+                    ButtonToolTips.InterfaceSmartBlockingMode,
+                    ButtonToolTips.SmartBlocking);
+            this.registerApp(
+                    16 + 5,
+                    Settings.SMART_BLOCK,
+                    YesNo.NO,
+                    ButtonToolTips.InterfaceSmartBlockingMode,
+                    ButtonToolTips.NonSmartBlocking);
 
             this.registerApp(16 + 3, Settings.CRAFT_ONLY, YesNo.YES, ButtonToolTips.Craft, ButtonToolTips.CraftOnly);
             this.registerApp(16 + 2, Settings.CRAFT_ONLY, YesNo.NO, ButtonToolTips.Craft, ButtonToolTips.CraftEither);
@@ -579,6 +632,18 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                     ActionItems.HIGHLIGHT_INTERFACE,
                     ButtonToolTips.HighlightInterface,
                     "");
+            this.registerApp(
+                    72,
+                    Settings.ACTIONS,
+                    ActionItems.MULTIPLY,
+                    ButtonToolTips.MultiplyPattern,
+                    ButtonToolTips.MultiplyOrDividePatternHint);
+            this.registerApp(
+                    73,
+                    Settings.ACTIONS,
+                    ActionItems.DIVIDE,
+                    ButtonToolTips.DividePattern,
+                    ButtonToolTips.MultiplyOrDividePatternHint);
 
             this.registerApp(
                     16 * 9 + 3,
@@ -624,6 +689,36 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                     ButtonToolTips.AdvancedBlockingModeAll,
                     ButtonToolTips.AdvancedBlockingModeAllDesc);
             this.registerApp(
+                    10,
+                    Settings.LOCK_CRAFTING_MODE,
+                    LockCraftingMode.NONE,
+                    ButtonToolTips.LockCraftingMode,
+                    ButtonToolTips.LockCraftingModeNone);
+            this.registerApp(
+                    2,
+                    Settings.LOCK_CRAFTING_MODE,
+                    LockCraftingMode.LOCK_UNTIL_PULSE,
+                    ButtonToolTips.LockCraftingMode,
+                    ButtonToolTips.LockCraftingUntilRedstonePulse);
+            this.registerApp(
+                    0,
+                    Settings.LOCK_CRAFTING_MODE,
+                    LockCraftingMode.LOCK_WHILE_HIGH,
+                    ButtonToolTips.LockCraftingMode,
+                    ButtonToolTips.LockCraftingWhileRedstoneHigh);
+            this.registerApp(
+                    1,
+                    Settings.LOCK_CRAFTING_MODE,
+                    LockCraftingMode.LOCK_WHILE_LOW,
+                    ButtonToolTips.LockCraftingMode,
+                    ButtonToolTips.LockCraftingWhileRedstoneLow);
+            this.registerApp(
+                    7,
+                    Settings.LOCK_CRAFTING_MODE,
+                    LockCraftingMode.LOCK_UNTIL_RESULT,
+                    ButtonToolTips.LockCraftingMode,
+                    ButtonToolTips.LockCraftingUntilResultReturned);
+            this.registerApp(
                     16 + 2,
                     Settings.CRAFTING_MODE,
                     CraftingMode.STANDARD,
@@ -635,6 +730,71 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                     CraftingMode.IGNORE_MISSING,
                     ButtonToolTips.CraftingModeIgnoreMissing,
                     ButtonToolTips.CraftingModeIgnoreMissingDesc);
+            this.registerApp(16 * 6 + 5, Settings.ACTIONS, ActionItems.EXTRA_OPTIONS, ButtonToolTips.ExtraOptions, "");
+
+            this.registerApp(
+                    16 * 10 + 6,
+                    Settings.CELL_TYPE,
+                    CellType.ITEM,
+                    ButtonToolTips.SwitchBytesInfo,
+                    ButtonToolTips.SwitchBytesInfo_Item);
+            this.registerApp(
+                    16 * 10 + 7,
+                    Settings.CELL_TYPE,
+                    CellType.FLUID,
+                    ButtonToolTips.SwitchBytesInfo,
+                    ButtonToolTips.SwitchBytesInfo_Fluid);
+            this.registerApp(
+                    16 * 10 + 8,
+                    Settings.CELL_TYPE,
+                    CellType.ESSENTIA,
+                    ButtonToolTips.SwitchBytesInfo,
+                    ButtonToolTips.SwitchBytesInfo_Essentia);
+
+            this.registerApp(
+                    16 * 7 + 3,
+                    Settings.PRIORITY_CARD_MODE,
+                    PriorityCardMode.EDIT,
+                    ButtonToolTips.PriorityCardMode,
+                    ButtonToolTips.PriorityCardMode_Edit);
+            this.registerApp(
+                    16 * 7 + 4,
+                    Settings.PRIORITY_CARD_MODE,
+                    PriorityCardMode.VIEW,
+                    ButtonToolTips.PriorityCardMode,
+                    ButtonToolTips.PriorityCardMode_View);
+            this.registerApp(
+                    16 * 7 + 5,
+                    Settings.PRIORITY_CARD_MODE,
+                    PriorityCardMode.SET,
+                    ButtonToolTips.PriorityCardMode,
+                    ButtonToolTips.PriorityCardMode_Set);
+            this.registerApp(
+                    16 * 7 + 6,
+                    Settings.PRIORITY_CARD_MODE,
+                    PriorityCardMode.INC,
+                    ButtonToolTips.PriorityCardMode,
+                    ButtonToolTips.PriorityCardMode_Inc);
+            this.registerApp(
+                    16 * 7 + 7,
+                    Settings.PRIORITY_CARD_MODE,
+                    PriorityCardMode.DEC,
+                    ButtonToolTips.PriorityCardMode,
+                    ButtonToolTips.PriorityCardMode_Dec);
+
+            this.registerApp(
+                    64,
+                    Settings.INTERFACE_TERMINAL_SECTION_ORDER,
+                    StringOrder.NATURAL,
+                    ButtonToolTips.StringOrder,
+                    ButtonToolTips.StringOrderNatural);
+            this.registerApp(
+                    16,
+                    Settings.INTERFACE_TERMINAL_SECTION_ORDER,
+                    StringOrder.ALPHANUM,
+                    ButtonToolTips.StringOrder,
+                    ButtonToolTips.StringOrderAlphanum);
+
         }
     }
 
@@ -653,56 +813,34 @@ public class GuiImgButton extends GuiButton implements ITooltip {
     }
 
     @Override
-    public void drawButton(final Minecraft par1Minecraft, final int par2, final int par3) {
+    public void drawButton(final Minecraft mc, final int mouseX, final int mouseY) {
         if (this.visible) {
-            final int iconIndex = this.getIconIndex();
-
             if (this.halfSize) {
                 this.width = 8;
                 this.height = 8;
-
-                GL11.glPushMatrix();
-                GL11.glTranslatef(this.xPosition, this.yPosition, 0.0F);
-                GL11.glScalef(0.5f, 0.5f, 0.5f);
-
-                if (this.enabled) {
-                    GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-                } else {
-                    GL11.glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
-                }
-
-                par1Minecraft.renderEngine.bindTexture(ExtraBlockTextures.GuiTexture("guis/states.png"));
-                this.field_146123_n = par2 >= this.xPosition && par3 >= this.yPosition
-                        && par2 < this.xPosition + this.width
-                        && par3 < this.yPosition + this.height;
-
-                final int uv_y = (int) Math.floor(iconIndex / 16);
-                final int uv_x = iconIndex - uv_y * 16;
-
-                this.drawTexturedModalRect(0, 0, 256 - 16, 256 - 16, 16, 16);
-                this.drawTexturedModalRect(0, 0, uv_x * 16, uv_y * 16, 16, 16);
-                this.mouseDragged(par1Minecraft, par2, par3);
-
-                GL11.glPopMatrix();
-            } else {
-                if (this.enabled) {
-                    GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-                } else {
-                    GL11.glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
-                }
-
-                par1Minecraft.renderEngine.bindTexture(ExtraBlockTextures.GuiTexture("guis/states.png"));
-                this.field_146123_n = par2 >= this.xPosition && par3 >= this.yPosition
-                        && par2 < this.xPosition + this.width
-                        && par3 < this.yPosition + this.height;
-
-                final int uv_y = (int) Math.floor(iconIndex / 16);
-                final int uv_x = iconIndex - uv_y * 16;
-
-                this.drawTexturedModalRect(this.xPosition, this.yPosition, 256 - 16, 256 - 16, 16, 16);
-                this.drawTexturedModalRect(this.xPosition, this.yPosition, uv_x * 16, uv_y * 16, 16, 16);
-                this.mouseDragged(par1Minecraft, par2, par3);
             }
+            this.field_146123_n = mouseX >= this.xPosition && mouseY >= this.yPosition
+                    && mouseX < this.xPosition + this.width
+                    && mouseY < this.yPosition + this.height;
+            if (this.enabled) {
+                GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            } else {
+                GL11.glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
+            }
+            mc.renderEngine.bindTexture(ExtraBlockTextures.GuiTexture("guis/states.png"));
+            final int iconIndex = this.getIconIndex();
+            final int uv_y = (int) Math.floor(iconIndex / 16);
+            final int uv_x = iconIndex - uv_y * 16;
+            GL11.glEnable(GL11.GL_BLEND);
+            OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glTranslatef(this.xPosition, this.yPosition, 0.0F);
+            if (this.halfSize) GL11.glScalef(0.5f, 0.5f, 0.5f);
+            this.drawTexturedModalRect(0, 0, 256 - 16, 256 - 16, 16, 16);
+            this.drawTexturedModalRect(0, 0, uv_x * 16, uv_y * 16, 16, 16);
+            if (this.halfSize) GL11.glScalef(2f, 2f, 2f);
+            GL11.glTranslatef(-this.xPosition, -this.yPosition, 0.0F);
+            this.mouseDragged(mc, mouseX, mouseY);
         }
         GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     }
@@ -758,17 +896,12 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             }
 
             value = PATTERN_NEW_LINE.matcher(value).replaceAll("\n");
-            final StringBuilder sb = new StringBuilder(value);
 
-            int i = sb.lastIndexOf("\n");
-            if (i <= 0) {
-                i = 0;
-            }
-            while (i + 30 < sb.length() && (i = sb.lastIndexOf(" ", i + 30)) != -1) {
-                sb.replace(i, i + 1, "\n");
-            }
+            if (Platform.isServer()) return name + '\n' + value;
 
-            return name + '\n' + sb;
+            value = Minecraft.getMinecraft().fontRenderer.wrapFormattedStringToWidth(value, 150);
+
+            return name + '\n' + value;
         }
         return null;
     }
@@ -796,6 +929,10 @@ public class GuiImgButton extends GuiButton implements ITooltip {
     @Override
     public boolean isVisible() {
         return this.visible;
+    }
+
+    public boolean getMouseIn() {
+        return this.field_146123_n;
     }
 
     public void set(final Enum e) {
